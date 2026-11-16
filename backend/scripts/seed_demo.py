@@ -14,7 +14,7 @@ def seed():
   for i in range(150):
    code=f'LG-{i+1:03}';planned=datetime.combine(day,datetime.min.time(),tzinfo=SH)+timedelta(minutes=i*8)
    delay=rng.choice([-5,0,0,3,5,8,12,18,25,40]);actual=planned+timedelta(minutes=delay)
-   if not s.query(Arrival).filter_by(code=code).first():s.add(Arrival(code=code,station=('北站','南站','东港')[i%3],planned_at=planned.astimezone(now.tzinfo).isoformat(),actual_at=None if i%29==0 else actual.astimezone(now.tzinfo).isoformat(),note='临港联运昨日交接班导出'))
+   if not s.query(Arrival).filter_by(code=code).first():s.add(Arrival(code=code,station=('北站','南站','东港')[i%3],planned_at=planned.astimezone(now.tzinfo).isoformat(),actual_at=None if i%29==0 else actual.astimezone(now.tzinfo).isoformat(),note='临港联运昨日交接班导出',planned_day=day.isoformat(),purged=False))
   for station in ('北站','南站','东港'):
    name=station+'值班晨报'
    if not s.query(Subscription).filter_by(name=name).first():s.add(Subscription(name=name,station=station,daily_at='08:30',recipient=station+'值班室',enabled=False,next_run_at=next_due('08:30',now).isoformat()))

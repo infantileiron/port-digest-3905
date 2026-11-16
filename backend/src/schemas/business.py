@@ -1,8 +1,8 @@
 import re
-from datetime import date
+from datetime import date,datetime
 from typing import Literal,Optional
 from pydantic import BaseModel,Field,field_validator,model_validator,ValidationInfo
-from src.utils.time import aware
+from src.utils.time import aware,SH
 class Login(BaseModel):email:str;password:str
 class ArrivalInput(BaseModel):
  code:str=Field(min_length=1,max_length=60)
@@ -38,3 +38,10 @@ class PreviewInput(BaseModel):
  report_day:date
  station:Literal['全部','北站','南站','东港']='全部'
 class ReviewInput(BaseModel):note:str=Field(min_length=5,max_length=2000)
+class PurgeInput(BaseModel):
+ cutoff_day:date
+ @field_validator('cutoff_day')
+ @classmethod
+ def expired_only(cls,v):
+  if v>=datetime.now(SH).date():raise ValueError('截止日须早于今天（上海），较新日期照常处理')
+  return v

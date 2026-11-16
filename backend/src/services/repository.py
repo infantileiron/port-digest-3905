@@ -2,13 +2,16 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from src.models.entities import Arrival,Subscription,Receipt
 from src.services.business import dump
-from src.utils.time import now_utc,next_due
+from src.services.purge import check_arrival_writable
+from src.utils.time import aware,now_utc,next_due,SH
 
-def arrival_rows(s):return [dump(r) for r in s.query(Arrival).order_by(Arrival.planned_at,Arrival.id).all()]
+def arrival_rows(s):return [dump(r) for r in s.query(Arrival).order_by(Arrival.planned_day,Arrival.planned_at,Arrival.id).all()]
 def save_arrival(s,data,i=None):
  r=s.get(Arrival,i) if i else Arrival()
  if not r:raise HTTPException(404,'到发记录不存在')
+ check_arrival_writable(s,data.planned_at,existing=r if i else None)
  for k,v in data.model_dump().items():setattr(r,k,v)
+ r.planned_day=aware(r.planned_at).astimezone(SH).date().isoformat()
  s.add(r)
  try:s.commit()
  except IntegrityError:s.rollback();raise HTTPException(409,'班次编号重复')

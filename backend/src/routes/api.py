@@ -1,13 +1,14 @@
 from fastapi import APIRouter,Depends,HTTPException
 from src.config.database import db
-from src.models.entities import User,Subscription,Receipt,Audit
-from src.schemas.business import Login,ArrivalInput,SubscriptionInput,PreviewInput,ReviewInput
+from src.models.entities import User,Subscription,Receipt,Audit,PurgeBatch
+from src.schemas.business import Login,ArrivalInput,SubscriptionInput,PreviewInput,ReviewInput,PurgeInput
 from src.middlewares.auth import current,editor,admin
 from src.utils.security import verify,token
 from src.utils.time import now_utc,yesterday,SH
 from src.services.business import audit,dump
 from src.services.repository import arrival_rows,save_arrival,save_subscription,get_receipt
 from src.services.digest import calculate
+from src.services.purge import counts
 from src.controllers.business import export_receipt
 router=APIRouter()
 @router.post('/auth/login')
@@ -50,3 +51,12 @@ def review(i:int,data:ReviewInput,u=Depends(admin),s=Depends(db)):
  r.state='reviewed';r.review_note=data.note;s.commit();audit(s,u,'复核晨报回执 '+str(i));return dump(r)
 @router.get('/audits')
 def audits(u=Depends(admin),s=Depends(db)):return [dump(r) for r in s.query(Audit).order_by(Audit.id.desc()).limit(100)]
+@router.get('/purge-batches')
+def purge_batches(u=Depends(current),s=Depends(db)):
+ return [dict(dump(b),counts=counts(s,b)) for b in s.query(PurgeBatch).order_by(PurgeBatch.id.desc()).all()]
+@router.post('/purge-batches')
+def create_purge_batch(data:PurgeInput,u=Depends(admin),s=Depends(db)):
+ b=PurgeBatch(cutoff_day=data.cutoff_day.isoformat(),state='pending',created_by=u.email,created_at=now_utc().isoformat())
+ s.add(b);s.commit();s.refresh(b)
+ audit(s,u,'受理清退批次 #'+str(b.id)+' 截止 '+b.cutoff_day+'，封存截止日前补录与改日写入')
+ return dict(dump(b),counts=counts(s,b))

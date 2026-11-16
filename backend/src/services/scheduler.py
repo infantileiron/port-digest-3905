@@ -14,7 +14,9 @@ def run_due(s,now):
   day=yesterday(now);existing=s.query(Receipt).filter_by(subscription_id=sub.id,report_day=day).first()
   if not existing:
    payload=calculate(arrival_rows(s),day,sub.station)
-   receipt=Receipt(subscription_id=sub.id,report_day=day,recipient=sub.recipient,created_at=now.isoformat(),state='delivered',payload=payload)
+   # A digest built only from purged remnants carries no shift identity and counts as already cleared.
+   purged=all(row.get('purged') for row in payload['rows'])
+   receipt=Receipt(subscription_id=sub.id,report_day=day,recipient=sub.recipient,created_at=now.isoformat(),state='delivered',payload=payload,purged=purged)
    s.add(receipt);s.flush();sent.append(receipt.id)
    s.add(Audit(actor='scheduler',action='到点分发订阅 '+str(sub.id)+' / '+day,created=now.isoformat()))
   sub.last_run_at=now.isoformat();sub.next_run_at=next_due(sub.daily_at,now).isoformat()

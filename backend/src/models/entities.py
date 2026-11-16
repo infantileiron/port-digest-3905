@@ -5,14 +5,19 @@ class User(Base):
  id=Column(Integer,primary_key=True);email=Column(String(100),unique=True,nullable=False);password=Column(String(200));role=Column(String(20))
 class Arrival(Base):
  __tablename__='arrivals'
- id=Column(Integer,primary_key=True);code=Column(String(60),unique=True,nullable=False);station=Column(String(30));planned_at=Column(String(40));actual_at=Column(String(40),nullable=True);note=Column(Text,default='')
+ id=Column(Integer,primary_key=True);code=Column(String(60),unique=True,nullable=False);station=Column(String(30));planned_at=Column(String(40),nullable=True);actual_at=Column(String(40),nullable=True);note=Column(Text,default='')
+ # Purge keeps an identity-free statistical remnant: plan day, station and delay minutes.
+ planned_day=Column(String(10),nullable=True);delay_minutes=Column(Float,nullable=True);purged=Column(Boolean,default=False)
 class Subscription(Base):
  __tablename__='subscriptions'
  id=Column(Integer,primary_key=True);name=Column(String(100),unique=True,nullable=False);station=Column(String(30));daily_at=Column(String(5));recipient=Column(String(80));enabled=Column(Boolean,default=False);next_run_at=Column(String(40));last_run_at=Column(String(40),nullable=True)
 class Receipt(Base):
  __tablename__='receipts'
  __table_args__=(UniqueConstraint('subscription_id','report_day',name='uq_receipt_subscription_day'),)
- id=Column(Integer,primary_key=True);subscription_id=Column(Integer,ForeignKey('subscriptions.id'));report_day=Column(String(10));recipient=Column(String(80));created_at=Column(String(40));state=Column(String(20),default='delivered');payload=Column(JSON);review_note=Column(Text,default='')
+ id=Column(Integer,primary_key=True);subscription_id=Column(Integer,ForeignKey('subscriptions.id'));report_day=Column(String(10));recipient=Column(String(80));created_at=Column(String(40));state=Column(String(20),default='delivered');payload=Column(JSON);review_note=Column(Text,default='');purged=Column(Boolean,default=False)
+class PurgeBatch(Base):
+ __tablename__='purge_batches'
+ id=Column(Integer,primary_key=True);cutoff_day=Column(String(10),nullable=False);state=Column(String(20),default='pending');created_by=Column(String(100));created_at=Column(String(40));started_at=Column(String(40),nullable=True);finished_at=Column(String(40),nullable=True)
 class Audit(Base):
  __tablename__='audits'
  id=Column(Integer,primary_key=True);actor=Column(String(100));action=Column(String(200));created=Column(String(40))

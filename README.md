@@ -6,11 +6,11 @@
 
 临港联运运营北站、南站和东港三个港站，每天约150条班次记录。现行工作流是值班员导出 `临港到发_20261114.xlsx`，分析员按日期筛选后手算延误，负责人再把表格转发给下一班。痛点是跨午夜班次归错日、未到发被当准点、重复转发后分不清同一口径。上游为港站计划/实际到发记录；本项目替代日界归档、晨报试算和定时分发；下游为站内值班室交接班。
 
-三个核心实体：Arrival到发记录、Subscription晨报订阅、Receipt分发回执，另有用户和审计。四页：到发台账、晨报预览、订阅计划、分发回执。回执支持值班复核与下载，原始记录修订不改变已分发晨报。
+三个核心实体：Arrival到发记录、Subscription晨报订阅、Receipt分发回执，另有PurgeBatch清退批次、用户和审计。五页：到发台账、晨报预览、订阅计划、分发回执、清退批次。回执支持值班复核与下载，原始记录修订不改变已分发晨报。
 
 |角色|权限|典型动作|
 |---|---|---|
-|admin|全部；独占订阅配置/值班复核/审计|设定08:30晨报并核对回执|
+|admin|全部；独占订阅配置/值班复核/审计/受理清退|设定08:30晨报并核对回执|
 |analyst|到发录入/修订、晨报试算、读取计划回执、导出|补录跨午夜班次|
 |viewer|业务只读与回执导出|下载冻结晨报；后端拒绝写入/计算|
 
@@ -46,6 +46,8 @@ docker compose exec -T backend python -m scripts.seed_demo
 
 晨报“送达”表示已提交站内数据库收件箱，不是SMTP邮件。回执保存冻结payload，DB提交后附加写共享产物卷；附加文件失败不影响DB回执和导出。值班复核仅管理员可做，一次复核不可覆盖，且不改变payload。支持单worker；唯一约束与锁防重复，但不声称对外消息的exactly-once。
 
+**清退批次**按上海计划日清退到期明细。负责人在清退批次页受理一个截止日（须早于上海今天，即至少保留完整昨日）；受理即刻永久封存截止日前的补录与改日写入（409拒绝），较新日期照常。worker同一调度锁内自动执行：批次从待执行、执行中到已完成，中断后下一周期自动接续，各步骤幂等、重试不重复计数。清退只清除台账、回执payload与共享档案（`/artifacts/<回执id>.json`，原子替换）里的班次编号、时间与备注，保留无班次身份的计划日/港站/延误分钟统计行，历史晨报的延误率与P50/P95精确分位数可按原口径重算，复核意见与回执状态不变。回执payload整列事务更新、档案先写临时文件再替换，因此并发分发与下载只会看到清退前或清退后的完整状态，绝不泄露已清明细。批次列表对每批给出台账/回执/档案三处的已清/待清/总数，全部来自实时对账。演练（跨日边界、清档中断、清退与分发同时发生）见 `../../test-artifacts/gb-3113/`。
+
 ## 工程、环境变量和开发
 
 Python3.11/FastAPI/SQLAlchemy/PyJWT、原生ES modules/CSS、Nginx、PostgreSQL16、Redis7。恰好frontend/backend/worker/db/redis五服务，各有健康检查；backend等db/redis、worker还等backend、frontend等backend。Redis实际提供调度锁；worker心跳 `/tmp/heartbeat`，DB/Redis/产物分别命名卷。Nginx `/api/` 去前缀代理后端根路由。
@@ -54,6 +56,6 @@ Python3.11/FastAPI/SQLAlchemy/PyJWT、原生ES modules/CSS、Nginx、PostgreSQL1
 
 本地开发：启动db/redis，backend安装requirements，设置DATABASE_URL/REDIS_URL/JWT_SECRET，再运行 `uvicorn src.main:app --reload` 和 `python -m src.worker`；前端仍建议用Nginx同源代理。后端目录src按routes/controllers/services/models/schemas/middlewares/config/utils/constants分工；前端src按api/stores/pages/components/hooks/utils/constants/types/router分工。ORM首次建表，migrations保留实际初始DDL，无在线迁移执行器。
 
-枚举：后端 `src/constants/enums.py`、`src/schemas/business.py` 与前端 `src/constants/enums.js` 定义ROLES、STATIONS、RECEIPT_STATES；TIMEZONE固定Asia/Shanghai。共用表格、表单、状态标签、晨报摘要组件；表单hooks、HTML转义和日期工具；请求ID/安全响应头两个中间件，业务审计与全局错误恢复。测试与截图在 `../../test-artifacts/gb-3113/`，不放源码内。
+枚举：后端 `src/constants/enums.py`、`src/schemas/business.py` 与前端 `src/constants/enums.js` 定义ROLES、STATIONS、RECEIPT_STATES、PURGE_STATES；TIMEZONE固定Asia/Shanghai。共用表格、表单、状态标签、晨报摘要组件；表单hooks、HTML转义和日期工具；请求ID/安全响应头两个中间件，业务审计与全局错误恢复。测试与截图在 `../../test-artifacts/gb-3113/`，不放源码内。
 
 范围：逐条录入/完整修订，无CSV导入、删除或分页；只有三个固定港站与上海时区。站内收件箱按名称记录，当前所有登录角色可读业务回执，无多租户邮箱隔离；不连接邮件、短信或外部IM。Google Fonts离线时字体回退。许可证MIT，见LICENSE。

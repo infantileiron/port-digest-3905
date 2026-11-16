@@ -1,1 +1,1 @@
-export const STATIONS=['北站','南站','东港'];export const ROLES=['admin','analyst','viewer'];export const RECEIPT_STATES=['delivered','reviewed'];export const TIMEZONE='Asia/Shanghai';
+export const STATIONS=['北站','南站','东港'];export const ROLES=['admin','analyst','viewer'];export const RECEIPT_STATES=['delivered','reviewed'];export const PURGE_STATES=['pending','running','completed'];export const PURGE_STATE_LABELS={pending:'待执行',running:'执行中',completed:'已完成'};export const TIMEZONE='Asia/Shanghai';
